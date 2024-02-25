@@ -18,3 +18,8 @@ Contributions are welcome! Feel free to open an issue or send a pull request.
 
 Contact
 <a href="https://github.com/AerodisSpace">Check main</a>
+
+
+## Extra content
+
+<a href="https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/Assigned_Numbers.pdf?v=1708821452195">Bluetooth® Document</a>
