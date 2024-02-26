@@ -1,5 +1,6 @@
-use esp_idf_hal::task::block_on;
+use esp_idf_hal::{delay::FreeRtos, task::block_on};
 use esp_idf_svc::hal::peripherals::Peripherals;
+use gamepad::gamepad::Gamepad;
 mod gamepad;
 
 fn main() -> anyhow::Result<()> {
@@ -13,9 +14,18 @@ fn main() -> anyhow::Result<()> {
     #[allow(unused)]
     let peripherals = Peripherals::take()?;
 
-    let mut gmpd = gamepad::gamepad::Gamepad::new();
+    let mut gmpd = Gamepad::new();
     block_on(async {
-        gmpd.scan().await;
+        let _ = gmpd.start().await;
+
+        loop {
+            if gmpd.connected {
+                let _ = gmpd.get_commands().await;
+            } else {
+                let _ = gmpd.start().await;
+            }
+            FreeRtos::delay_ms(1);
+        }
     });
 
     Ok(())
