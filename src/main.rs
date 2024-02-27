@@ -1,6 +1,9 @@
 use esp_idf_hal::{delay::FreeRtos, task::block_on};
 use esp_idf_svc::hal::peripherals::Peripherals;
-use gamepad::gamepad::Gamepad;
+use gamepad::{
+    ble::BLEGamepad,
+    gamepads::gamepads::{GamepadDevice, GamepadHandle},
+};
 mod gamepad;
 
 fn main() -> anyhow::Result<()> {
@@ -14,15 +17,22 @@ fn main() -> anyhow::Result<()> {
     #[allow(unused)]
     let peripherals = Peripherals::take()?;
 
-    let mut gmpd = Gamepad::new();
+    // Nedd instance of BLEGamepad, scan and connect and get the gamepad
+    let mut gamepad_ble = BLEGamepad::new();
+
     block_on(async {
-        let _ = gmpd.start().await;
+        gamepad_ble.scan_and_connect().await;
+        let mut gamepad = match gamepad_ble.get_gamepad().unwrap() {
+            GamepadDevice::XboxOne(gamepad_xone) => gamepad_xone,
+        };
 
         loop {
-            if gmpd.connected {
-                let _ = gmpd.get_commands().await;
-            } else {
-                let _ = gmpd.start().await;
+            if gamepad.connected() {
+                gamepad.handle_sticks();
+                gamepad.handle_buttons();
+                gamepad.handle_triggers();
+                gamepad.handle_battery();
+                gamepad.get_device_data();
             }
             FreeRtos::delay_ms(1);
         }

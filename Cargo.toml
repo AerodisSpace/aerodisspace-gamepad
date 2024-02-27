@@ -41,6 +41,7 @@ esp-idf-svc = { version = "0.48", default-features = false }
 esp-idf-hal = "0.43"
 anyhow = "1.0.80"
 esp32-nimble = { git = "https://github.com/taks/esp32-nimble", branch = "develop", optional = true }
+regex = "1.10.3"
 
 
 [build-dependencies]

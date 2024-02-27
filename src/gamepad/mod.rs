@@ -1,2 +1,2 @@
-pub mod gamepad;
-mod ble;
+pub mod ble;
+pub mod gamepads;
