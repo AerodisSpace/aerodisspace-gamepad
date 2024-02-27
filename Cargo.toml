@@ -1,10 +1,14 @@
 [package]
-name = "aerodis-gamepad"
+name = "aerodisspace-gamepad"
 version = "0.1.0"
 authors = ["lnxdxtf <gabrielramosmichaliszen@gmail.com>"]
 edition = "2021"
 resolver = "2"
 rust-version = "1.71"
+type = "lib"
+
+[lib]
+crate-type = ["lib", "rlib"]
 
 [profile.release]
 opt-level = "s"
@@ -13,19 +17,8 @@ opt-level = "s"
 debug = true    # Symbols are nice and they don't increase the size on Flash
 opt-level = "z"
 
-
-[profile.dev.package.esp-wifi]
-opt-level = 3
-
 [features]
-default = ["controller"]
-
-# Aircraft features
-aircraft = ["common"]
-
-# Controller features
-controller = ["common", "esp32-nimble"]
-
+default = ["common"]
 ## COMNMON FEATURES FOR ALL TARGETS
 common = ["std", "embassy", "esp-idf-svc/native"]
 std = ["esp-idf-svc/alloc", "esp-idf-svc/binstart", "esp-idf-svc/std"]
@@ -40,7 +33,7 @@ log = { version = "0.4", default-features = false }
 esp-idf-svc = { version = "0.48", default-features = false }
 esp-idf-hal = "0.43"
 anyhow = "1.0.80"
-esp32-nimble = { git = "https://github.com/taks/esp32-nimble", branch = "develop", optional = true }
+esp32-nimble = { git = "https://github.com/taks/esp32-nimble", branch = "develop" }
 regex = "1.10.3"
 
 

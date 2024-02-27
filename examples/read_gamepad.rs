@@ -1,10 +1,9 @@
-use esp_idf_hal::{delay::FreeRtos, task::block_on};
-use esp_idf_svc::hal::peripherals::Peripherals;
-use gamepad::{
+use aerodisspace_gamepad::gamepad::{
     ble::BLEGamepad,
     gamepads::gamepads::{GamepadDevice, GamepadHandle},
 };
-mod gamepad;
+use esp_idf_hal::{delay::FreeRtos, task::block_on};
+use esp_idf_svc::hal::peripherals::Peripherals;
 
 fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
