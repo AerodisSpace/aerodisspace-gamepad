@@ -1,3 +1,5 @@
+use esp32_nimble::{BLEClient, BLERemoteCharacteristic, BLERemoteService};
+
 use super::xboxone::GamepadXboxOne;
 
 /// GAMEPADS is a list of gamepads that are compatible with this library.
@@ -21,10 +23,22 @@ pub enum GamepadDevice<'a> {
 /// to handle the buttons, sticks, triggers, and battery.
 /// Make sure to implement the GamepadHandle trait for each gamepad device.
 pub trait GamepadHandle {
+    fn init(&mut self) -> anyhow::Result<GamepadInfo>;
+    fn get_device_data(&mut self) -> anyhow::Result<GamepadInfo>;
     fn connected(&mut self) -> bool;
-    fn get_device_data(&mut self) -> anyhow::Result<()>;
+    fn get_service_and_characteristic(&mut self) -> anyhow::Result<()>;
     fn handle_buttons(&mut self) -> anyhow::Result<()>;
     fn handle_sticks(&mut self) -> anyhow::Result<()>;
     fn handle_triggers(&mut self) -> anyhow::Result<()>;
     fn handle_battery(&mut self) -> anyhow::Result<()>;
+}
+
+#[derive(Debug, Default)]
+pub struct GamepadInfo {
+    pub device_name: Option<String>,
+    pub device_manufacturer: Option<String>,
+    pub device_type: Option<String>,
+    pub device_uuid: Option<String>,
+    pub device_firmware: Option<String>,
+    pub device_serial: Option<String>,
 }
