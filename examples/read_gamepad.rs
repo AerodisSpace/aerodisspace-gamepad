@@ -4,7 +4,7 @@ use aerodisspace_gamepad::gamepad::{
 };
 use esp_idf_hal::{delay::FreeRtos, task::block_on};
 use esp_idf_svc::hal::peripherals::Peripherals;
-use log::error;
+use log::{error, info};
 
 fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -21,20 +21,20 @@ fn main() -> anyhow::Result<()> {
     let mut gamepad_ble = BLEGamepad::new();
 
     block_on(async {
-        gamepad_ble.scan_and_connect().await;
+        let _ = gamepad_ble.scan_and_connect().await;
         let mut gamepad = match gamepad_ble.get_gamepad().unwrap() {
             GamepadDevice::XboxOne(gamepad_xone) => gamepad_xone,
         };
 
-        if gamepad.connected() {
-            match gamepad.get_device_data() {
-                Ok(_) => {}
+        if gamepad_ble.connected() {
+            match gamepad_ble.get_device_data().await {
+                Ok(data) => info!("Device data: {:#?}", data),
                 Err(_) => {
                     error!("Error getting device data")
                 }
             }
         }
-        while gamepad.connected() {
+        while gamepad_ble.connected() {
             FreeRtos::delay_ms(1);
         }
     });

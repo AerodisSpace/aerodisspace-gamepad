@@ -1,8 +1,11 @@
 use anyhow::{bail, Result};
-use esp32_nimble::{BLEAdvertisedDevice, BLEClient, BLEDevice};
+use esp32_nimble::{utilities::BleUuid, BLEAdvertisedDevice, BLEClient, BLEDevice};
 use log::{error, info, warn};
 
-use super::gamepads::{gamepads::GamepadDevice, xboxone::GamepadXboxOne};
+use super::gamepads::{
+    gamepads::{GamepadDevice, GamepadInfo},
+    xboxone::GamepadXboxOne,
+};
 use crate::gamepad::gamepads::gamepads::check_gamepad_compatibility;
 
 pub struct BLEGamepad<'a> {
@@ -36,9 +39,7 @@ impl<'a> BLEGamepad<'a> {
             .active_scan(true)
             .interval(150)
             .window(150)
-            .find_device(10000, |_device| {
-                check_gamepad_compatibility(&_device.name().to_string())
-            })
+            .find_device(10000, |_device| check_gamepad_compatibility(&_device.name().to_string()))
             .await
         {
             Ok(device) => {
@@ -81,7 +82,19 @@ impl<'a> BLEGamepad<'a> {
         self._ble_client.on_disconnect(|_| {
             info!("Disconnected from gamepad");
         });
+
+        self._ble_client.on_passkey_request(|| 123456);
+
+        self._ble_client.on_confirm_pin(|pin| {
+            info!("Pin: {}", pin);
+            true
+        });
+
         Ok(())
+    }
+
+    pub fn connected(&mut self) -> bool {
+        self._ble_client.connected()
     }
 
     pub fn get_gamepad(&mut self) -> Result<GamepadDevice> {
@@ -105,4 +118,105 @@ impl<'a> BLEGamepad<'a> {
             bail!("No gamepad found");
         }
     }
+
+    pub async fn get_device_data(&mut self) -> anyhow::Result<GamepadInfo> {
+        let mut gamepad_info = GamepadInfo::default();
+
+        // Get the generic access service
+        match self
+            ._ble_client
+            .get_service(BleUuid::from_uuid128_string(GENERIC_ACCESS_SERVICE_UUID).unwrap())
+            .await
+        {
+            Ok(service) => {
+                // Device name characteristic
+                match BleUuid::from_uuid128_string(GENERIC_ACCESS_SERVICE_CHARACTERISTIC_DEVICE_NAME_UUID) {
+                    Ok(uuid) => match service.get_characteristic(uuid).await {
+                        Ok(ch) => match ch.read_value().await {
+                            Ok(val) => match String::from_utf8(val) {
+                                Ok(data) => gamepad_info.device_name = Some(data),
+                                Err(_) => {}
+                            },
+                            Err(_) => {}
+                        },
+                        Err(_) => {}
+                    },
+                    Err(_) => return Err(anyhow::anyhow!("Failed to parse UUID for device name")),
+                };
+            }
+            Err(_) => return Err(anyhow::anyhow!("Failed to get service for generic access")),
+        };
+
+        //================================================================================================
+        // Device Information Service
+
+        match self
+            ._ble_client
+            .get_service(BleUuid::from_uuid128_string(DEVICE_INFORMATION_SERVICE_UUID).unwrap())
+            .await
+        {
+            Ok(service) => {
+                // Device manufactures characteristic
+                match service
+                    .get_characteristic(BleUuid::from_uuid128_string(DEVICE_INFORMATION_SERVICE_CHARACTERISTIC_MANUFACTURER_NAME_UUID).unwrap())
+                    .await
+                {
+                    Ok(ch) => match ch.read_value().await {
+                        Ok(val) => match String::from_utf8(val) {
+                            Ok(data) => gamepad_info.device_manufacturer = Some(data),
+                            Err(_) => {}
+                        },
+                        Err(_) => {}
+                    },
+                    Err(_) => {}
+                }
+                // Device firmware characteristic
+                match service
+                    .get_characteristic(BleUuid::from_uuid128_string(DEVICE_INFORMATION_SERVICE_CHARACTERISTIC_FIRMWARE_REVISION_UUID).unwrap())
+                    .await
+                {
+                    Ok(ch) => match ch.read_value().await {
+                        Ok(val) => match String::from_utf8(val) {
+                            Ok(data) => gamepad_info.device_firmware = Some(data),
+                            Err(_) => {}
+                        },
+                        Err(_) => {}
+                    },
+                    Err(_) => {}
+                }
+
+                // Device Serial characteristic
+                match service
+                    .get_characteristic(BleUuid::from_uuid128_string(DEVICE_INFORMATION_SERVICE_CHARACTERISTIC_SERIAL_NUMBER_UUID).unwrap())
+                    .await
+                {
+                    Ok(ch) => match ch.read_value().await {
+                        Ok(val) => match String::from_utf8(val) {
+                            Ok(data) => gamepad_info.device_serial = Some(data),
+                            Err(_) => {}
+                        },
+                        Err(_) => {}
+                    },
+                    Err(_) => {}
+                }
+            }
+            Err(_) => return Err(anyhow::anyhow!("Failed to get service")),
+        };
+
+        Ok(gamepad_info)
+    }
 }
+
+pub const GENERIC_ACCESS_SERVICE_UUID: &str = "00001800-0000-1000-8000-00805F9B34FB";
+pub const GENERIC_ACCESS_SERVICE_CHARACTERISTIC_DEVICE_NAME_UUID: &str = "00002A00-0000-1000-8000-00805F9B34FB";
+pub const GENERIC_ACCESS_SERVICE_CHARACTERISTIC_APPEARANCE_UUID: &str = "00002A01-0000-1000-8000-00805F9B34FB";
+pub const GENERIC_ACCESS_SERVICE_CHARACTERISTIC_PERIPHERAL_PREFERRED_CONNECTION_PARAMETERS_UUID: &str = "00002A04-0000-1000-8000-00805F9B34FB";
+
+pub const DEVICE_INFORMATION_SERVICE_UUID: &str = "0000180A-0000-1000-8000-00805F9B34FB";
+pub const DEVICE_INFORMATION_SERVICE_CHARACTERISTIC_MANUFACTURER_NAME_UUID: &str = "00002A29-0000-1000-8000-00805F9B34FB";
+pub const DEVICE_INFORMATION_SERVICE_CHARACTERISTIC_MODEL_NUMBER_UUID: &str = "00002A24-0000-1000-8000-00805F9B34FB";
+pub const DEVICE_INFORMATION_SERVICE_CHARACTERISTIC_SERIAL_NUMBER_UUID: &str = "00002A25-0000-1000-8000-00805F9B34FB";
+pub const DEVICE_INFORMATION_SERVICE_CHARACTERISTIC_FIRMWARE_REVISION_UUID: &str = "00002A26-0000-1000-8000-00805F9B34FB";
+
+pub const BATERY_SERVICE_UUID: &str = "0000180F-0000-1000-8000-00805F9B34FB";
+pub const BATERY_SERVICE_CHARACTERISTIC_BATTERY_LEVEL_UUID: &str = "00002A19-0000-1000-8000-00805F9B34FB";

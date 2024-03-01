@@ -9,9 +9,7 @@ const GAMEPAD_COMPATIBLE: [&str; 1] = ["XBOX WIRELESS CONTROLLER"];
 
 // TODO: Improve method to check gamepad compatibility
 pub fn check_gamepad_compatibility(device_name: &str) -> bool {
-    GAMEPAD_COMPATIBLE
-        .iter()
-        .any(|&name| device_name.to_lowercase().contains(&name.to_lowercase()))
+    GAMEPAD_COMPATIBLE.iter().any(|&name| device_name.to_lowercase().contains(&name.to_lowercase()))
 }
 
 /// GamepadDevice is an enum that is used to define the different gamepad devices
@@ -22,15 +20,12 @@ pub enum GamepadDevice<'a> {
 /// GamepadHandle is a trait that is implemented by the gamepad devices
 /// to handle the buttons, sticks, triggers, and battery.
 /// Make sure to implement the GamepadHandle trait for each gamepad device.
-pub trait GamepadHandle {
-    fn init(&mut self) -> anyhow::Result<GamepadInfo>;
-    fn get_device_data(&mut self) -> anyhow::Result<GamepadInfo>;
-    fn connected(&mut self) -> bool;
-    fn get_service_and_characteristic(&mut self) -> anyhow::Result<()>;
+pub trait GamepadHandle<T> {
     fn handle_buttons(&mut self) -> anyhow::Result<()>;
     fn handle_sticks(&mut self) -> anyhow::Result<()>;
     fn handle_triggers(&mut self) -> anyhow::Result<()>;
     fn handle_battery(&mut self) -> anyhow::Result<()>;
+    fn get_packet(&mut self) -> anyhow::Result<T>;
 }
 
 #[derive(Debug, Default)]
