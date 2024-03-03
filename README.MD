@@ -29,12 +29,11 @@ Contact
 
 - Read Gamepad: 
 ```rust
-use aerodisspace_gamepad::gamepad::{
-    ble::BLEGamepad,
-    gamepads::gamepads::{GamepadDevice, GamepadHandle},
-};
+use aerodisspace_gamepad::gamepad::{ble::AerodisSpaceGamepad, gamepads::gamepads::*, gamepads::xboxone::*};
+
 use esp_idf_hal::{delay::FreeRtos, task::block_on};
 use esp_idf_svc::hal::peripherals::Peripherals;
+use log::info;
 
 fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -48,21 +47,18 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take()?;
 
     // Nedd instance of BLEGamepad, scan and connect and get the gamepad
-    let mut gamepad_ble = BLEGamepad::new();
+    let mut gamepad = AerodisSpaceGamepad::new(GamepadType::XboxOne);
 
     block_on(async {
-        gamepad_ble.scan_and_connect().await;
-        let mut gamepad = match gamepad_ble.get_gamepad().unwrap() {
-            GamepadDevice::XboxOne(gamepad_xone) => gamepad_xone,
-        };
+        gamepad.start().await;
+        info!("gamepad type: {:?}", gamepad.gamepad_type);
 
-        loop {
-            if gamepad.connected() {
-                gamepad.handle_sticks();
-                gamepad.handle_buttons();
-                gamepad.handle_triggers();
-                gamepad.handle_battery();
-                gamepad.get_device_data();
+        while gamepad.connected() {
+            let packet = gamepad.get_gamepad_packet().await;
+            match packet {
+                GamepadPacket::XboxOne(packet) => {
+                    // info!("XboxOne packet: {:?}", packet);
+                }
             }
             FreeRtos::delay_ms(1);
         }
@@ -70,5 +66,6 @@ fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
+
 
 ```
