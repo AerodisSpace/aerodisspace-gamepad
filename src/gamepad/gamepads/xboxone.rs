@@ -1,67 +1,77 @@
 #![allow(unused)]
 
-use esp32_nimble::{uuid128, BLERemoteCharacteristic, BLERemoteService};
-use esp_idf_hal::task::block_on;
-use log::info;
+// https://github.com/DJm00n/ControllersInfo/blob/master/xboxone/xboxone_model_1708_bluetooth_hid_report_descriptor.txt
 
 use super::gamepads::GamepadPacketHandler;
+use esp32_nimble::{uuid128, BLERemoteCharacteristic, BLERemoteService};
+use esp_idf_hal::task::block_on;
+use log::{error, info};
+
+const HID_SVC_UUID: &str = "0x1812";
+const HID_INFO_UUID: &str = "0x2a4a";
+const HID_REPORT_MAP_UUID: &str = "0x2a4b";
+const HID_CONTROL_POINT_UUID: &str = "0x2a4c";
+const HID_REPORT_UUID: &str = "0x2a4d";
 
 #[derive(Default, Debug)]
 pub struct GamepadPacketXboxOne {
     /// Buttons
     pub buttons: Vec<ButtonsXboxOne>,
     /// Sticks (left, right) (x, y)
-    pub sticks: [(i16, i16); 2],
+    pub sticks: [(u16, u16); 2],
     /// BRAKE, THROTTLE
     pub trigger: (u16, u16),
     pub battery: u8,
 }
 
-impl GamepadPacketHandler<Vec<ButtonsXboxOne>, [(i16, i16); 2], (u16, u16)> for GamepadPacketXboxOne {
-    fn buttons(raw_data: Vec<u8>) -> Vec<ButtonsXboxOne> {
+impl GamepadPacketHandler<Vec<ButtonsXboxOne>, [(u16, u16); 2], (u16, u16)> for GamepadPacketXboxOne {
+    fn buttons(&mut self, raw_data: &[u8]) -> Vec<ButtonsXboxOne> {
         unimplemented!()
     }
 
-    fn sticks(raw_data: Vec<u8>) -> [(i16, i16); 2] {
+    fn sticks(&mut self, raw_data: &[u8]) -> [(u16, u16); 2] {
+        info!("{:?}", raw_data);
+        if raw_data.len() >= 8 {
+            let rx = u16::from_le_bytes([raw_data[0], raw_data[1]]);
+            let ry = u16::from_le_bytes([raw_data[2], raw_data[3]]);
+            let lx = u16::from_le_bytes([raw_data[4], raw_data[5]]);
+            let ly = u16::from_le_bytes([raw_data[6], raw_data[7]]);
+            [(lx, ly), (rx, ry)]
+        } else {
+            error!("Invalid data length: {:?}", raw_data.len());
+            [(0, 0), (0, 0)]
+        }
+    }
+
+    fn trigger(&mut self, raw_data: &[u8]) -> (u16, u16) {
         unimplemented!()
     }
 
-    fn trigger(raw_data: Vec<u8>) -> (u16, u16) {
+    fn battery(&mut self, raw_data: &[u8]) -> u8 {
         unimplemented!()
     }
 
-    fn battery(raw_data: Vec<u8>) -> u8 {
-        unimplemented!()
-    }
-
-    fn parse_packet(&self, svcs: Vec<&mut BLERemoteService>) -> Self {
+    fn parse_packet(&mut self, svcs: Vec<&mut BLERemoteService>) -> Self {
         let mut main_svc: Option<&mut BLERemoteService> = None;
-        let mut battery_svc: Option<&mut BLERemoteService> = None;
         for svc in svcs {
-            if svc.uuid() == uuid128!("00000001-5F60-4C4F-9C83-A7953298D40D") {
+            if svc.uuid().to_string() == HID_SVC_UUID {
                 main_svc = Some(svc);
-            } else if svc.uuid() == uuid128!("00000002-5F60-4C4F-9C83-A7953298D40D") {
-                battery_svc = Some(svc);
             }
         }
-
         block_on(async {
             // Main (buttons, sticks, triggers, etc.)
             if let Some(svc) = main_svc {
                 for chr in svc.get_characteristics().await.unwrap() {
-                    if chr.uuid() == uuid128!("00000002-5F60-4C4F-9C83-A7953298D40D") {
-                        if chr.can_read() {
-                            let raw_data = chr.read_value().await.unwrap();
-                            info!("data giga:\n {:#?}", raw_data);
-                        }
+                    // REPORT
+                    if chr.can_read() && chr.uuid().to_string() == HID_REPORT_UUID {
+                        let raw_data = chr.read_value().await.unwrap();
+                        self.sticks = self.sticks(&raw_data);
+                        info!("{:?}", self.sticks);
                     }
                 }
             }
-            // Battery
-            if let Some(svc) = battery_svc {
-                for chr in svc.get_characteristics().await.unwrap() {}
-            }
         });
+        // info!("{:?}", raw_data);
 
         Self::default()
     }

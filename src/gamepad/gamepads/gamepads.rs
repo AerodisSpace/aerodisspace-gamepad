@@ -24,10 +24,10 @@ pub enum GamepadPacket {
 
 /// Trait responsible for handling gamepad packets, parse characteristics and services to get the gamepad packet
 pub trait GamepadPacketHandler<B, S, T> {
-    fn buttons(raw_data: Vec<u8>) -> B;
-    fn sticks(raw_data: Vec<u8>) -> S;
-    fn trigger(raw_data: Vec<u8>) -> T;
-    fn battery(raw_data: Vec<u8>) -> u8;
+    fn buttons(&mut self, raw_data: &[u8]) -> B;
+    fn sticks(&mut self, raw_data: &[u8]) -> S;
+    fn trigger(&mut self, raw_data: &[u8]) -> T;
+    fn battery(&mut self, raw_data: &[u8]) -> u8;
     /// Parse buttons fn, sticks fn and trigger fn to get the gamepad packet
-    fn parse_packet(&self, svcs: Vec<&mut BLERemoteService>) -> Self;
+    fn parse_packet(&mut self, svcs: Vec<&mut BLERemoteService>) -> Self;
 }

@@ -30,6 +30,7 @@ embassy = [
 [dependencies]
 log = { version = "0.4", default-features = false }
 esp-idf-svc = { version = "0.48", default-features = false }
+esp-idf-sys = "0.34.1"
 esp-idf-hal = "0.43"
 anyhow = "1.0.80"
 esp32-nimble = { git = "https://github.com/taks/esp32-nimble", branch = "develop" }
