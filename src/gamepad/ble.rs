@@ -1,4 +1,7 @@
-use std::borrow::BorrowMut;
+use std::{
+    borrow::BorrowMut,
+    sync::{Arc, Mutex},
+};
 
 use esp32_nimble::{
     enums::{AuthReq, SecurityIOCap},
@@ -7,8 +10,8 @@ use esp32_nimble::{
 use log::{error, info, warn};
 
 use super::gamepads::{
-    gamepads::{check_gamepad_compatibility, GamepadPacket, GamepadPacketHandler, GamepadType},
-    xboxone::GamepadPacketXboxOne,
+    gamepads::{check_gamepad_compatibility, GamepadHandler, GamepadPacketHandler, GamepadType},
+    xboxone::xboxone::GamepadXboxOne,
 };
 
 const PASSKEY: u32 = 1234;
@@ -41,25 +44,37 @@ impl<'a> AerodisSpaceGamepad<'a> {
             client.on_passkey_request(|| PASSKEY);
             client.on_confirm_pin(|pin| pin == PASSKEY);
 
-            client.connect(device.addr()).await.expect("Could not connect to gamepad");
+            client
+                .connect(device.addr())
+                .await
+                .expect("Could not connect to gamepad");
             client.secure_connection().await.expect("SECURE CONNECTION FAILED");
 
             // Generic access service
-            match client.get_service(uuid128!("00001800-0000-1000-8000-00805F9B34FB")).await {
+            match client
+                .get_service(uuid128!("00001800-0000-1000-8000-00805F9B34FB"))
+                .await
+            {
                 Ok(svc) => {
                     // preferred connection parameters
-                    match svc.get_characteristic(uuid128!("00002A04-0000-1000-8000-00805F9B34FB")).await {
+                    match svc
+                        .get_characteristic(uuid128!("00002A04-0000-1000-8000-00805F9B34FB"))
+                        .await
+                    {
                         Ok(chr) => {
                             let values = chr.read_value().await.unwrap();
-                            
+
                             let preferred_conn_params = (
                                 u16::from_le_bytes([values[0], values[1]]), // Minimum connection interval
                                 u16::from_le_bytes([values[2], values[3]]), // Maximum connection interval
                                 u16::from_le_bytes([values[4], values[5]]), // Slave latency
                                 u16::from_le_bytes([values[6], values[7]]), // Connection supervision timeout
                             );
-                            info!("Device Preferred connection parameters: {:?}\n Updating...", preferred_conn_params);
-                            
+                            info!(
+                                "Device Preferred connection parameters: {:?}\n Updating...",
+                                preferred_conn_params
+                            );
+
                             client
                                 .update_conn_params(
                                     preferred_conn_params.0,
@@ -89,7 +104,9 @@ impl<'a> AerodisSpaceGamepad<'a> {
             .active_scan(true)
             .interval(150)
             .window(150)
-            .find_device(10000, |_device| check_gamepad_compatibility(&_device.name().to_string()))
+            .find_device(10000, |_device| {
+                check_gamepad_compatibility(&_device.name().to_string())
+            })
             .await
         {
             Ok(device) => {
@@ -106,17 +123,19 @@ impl<'a> AerodisSpaceGamepad<'a> {
         }
     }
 
-    pub async fn get_gamepad_packet(&mut self) -> GamepadPacket {
+    pub async fn get_gamepad(&mut self) -> GamepadHandler {
         let svcs: Vec<&mut BLERemoteService> = self._ble_client.get_services().await.unwrap().into_iter().collect();
         match self.gamepad_type {
             GamepadType::XboxOne => {
-                let mut packet = GamepadPacketXboxOne::default();
-                packet.parse_packet(svcs);
-                GamepadPacket::XboxOne(packet)
+                let  gamepad = GamepadXboxOne::default();
+                let gamepad_arc = Arc::new(Mutex::new(gamepad));
+                GamepadXboxOne::setup(gamepad_arc.clone(), svcs);
+                GamepadHandler::XboxOne(gamepad_arc)
             }
+            #[allow(unreachable_patterns)]
             _ => {
                 warn!("Gamepad not implemented yet!");
-                GamepadPacket::XboxOne(GamepadPacketXboxOne::default())
+                panic!("Gamepad not implemented yet!")
             }
         }
     }
