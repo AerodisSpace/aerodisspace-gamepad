@@ -47,18 +47,18 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take()?;
 
     // Nedd instance of BLEGamepad, scan and connect and get the gamepad
-    let mut gamepad = AerodisSpaceGamepad::new(GamepadType::XboxOne);
+    let mut ble = AerodisSpaceGamepad::new(GamepadType::XboxOne);
 
     block_on(async {
-        gamepad.start().await;
-        info!("gamepad type: {:?}", gamepad.gamepad_type);
-
-        while gamepad.connected() {
-            let packet = gamepad.get_gamepad_packet().await;
-            match packet {
-                GamepadPacket::XboxOne(packet) => {
-                    // info!("XboxOne packet: {:?}", packet);
-                }
+        ble.start().await;
+        info!("gamepad type: {:?}", ble.gamepad_type);
+        let gamepad = ble.get_gamepad().await;
+        while ble.connected() {
+            
+            match &gamepad {
+                GamepadHandler::XboxOne(gmpd) => {
+                    info!("Gamepad: {:?}", gmpd);
+                },
             }
             FreeRtos::delay_ms(1);
         }
