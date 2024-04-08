@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
             
             match &gamepad {
                 GamepadHandler::XboxOne(gmpd) => {
-                    info!("Gamepad: {:?}", gmpd);
+                    info!("Gamepad: {:?}", gmpd.lock().unwrap());
                 },
             }
             FreeRtos::delay_ms(1);

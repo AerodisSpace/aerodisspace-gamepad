@@ -35,7 +35,7 @@ const HID_DESCRIPTOR: [u8; 258] = [
 pub struct GamepadXboxOne {
     pub debug: bool,
     /// Buttons
-    pub buttons: Vec<ButtonsXboxOne>,
+    pub buttons: ButtonsXboxOne,
     /// Sticks (left, right) (x, y)
     pub sticks: [(u16, u16); 2],
     /// BRAKE, THROTTLE
@@ -100,11 +100,14 @@ impl GamepadPacketHandler for GamepadXboxOne {
                             _self_lock.set_buttons(raw_data);
                             _self_lock.set_trigger(raw_data);
                             _self_lock.set_battery(raw_data);
-                            if _self_lock
-                                .buttons
-                                .contains(&ButtonsXboxOne::Misc(ButtonMiscXboxOne::MainXboxButton))
-                            {
-                                _self_lock.debug = !_self_lock.debug;
+                            if let Some(misc_btn) = _self_lock.buttons.misc {
+                                match misc_btn {
+                                    ButtonMiscXboxOne::MainXboxButton => _self_lock.debug = !_self_lock.debug,
+                                    ButtonMiscXboxOne::Start => {}
+                                    ButtonMiscXboxOne::View => {}
+                                    ButtonMiscXboxOne::RightStick => {}
+                                    ButtonMiscXboxOne::LeftStick => {}
+                                }
                             }
                         });
                         chr.subscribe_notify(true);
@@ -115,59 +118,49 @@ impl GamepadPacketHandler for GamepadXboxOne {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ButtonMiscXboxOne {
     MainXboxButton = 16,
     Start = 8,
     View = 4,
     RightStick = 64,
     LeftStick = 32,
-    None = 0,
 }
 
 impl ButtonMiscXboxOne {
-    fn from_u8(raw_data: u8) -> Self {
+    fn from_u8(raw_data: u8) -> Option<Self> {
         match raw_data {
-            16 => return Self::MainXboxButton,
-            8 => return Self::Start,
-            4 => return Self::View,
-            64 => return Self::RightStick,
-            32 => return Self::LeftStick,
-            0 => return Self::None,
-            _ => {
-                error!("Misc button value not implemented: {:?}", raw_data);
-                panic!("Misc button value not implemented");
-            }
+            16 => Some(Self::MainXboxButton),
+            8 => Some(Self::Start),
+            4 => Some(Self::View),
+            64 => Some(Self::RightStick),
+            32 => Some(Self::LeftStick),
+            _ => None,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ButtonDpadXboxOne {
     Up = 1,
     Down = 5,
     Left = 7,
     Right = 3,
-    None = 0,
 }
 
 impl ButtonDpadXboxOne {
-    fn from_u8(raw_data: u8) -> Self {
+    fn from_u8(raw_data: u8) -> Option<Self> {
         match raw_data {
-            1 => return Self::Up,
-            5 => return Self::Down,
-            7 => return Self::Left,
-            3 => return Self::Right,
-            0 => return Self::None,
-            _ => {
-                error!("Dpad value not implemented: {:?}", raw_data);
-                return Self::None;
-            }
+            1 => Some(Self::Up),
+            5 => Some(Self::Down),
+            7 => Some(Self::Left),
+            3 => Some(Self::Right),
+            _ => None,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ButtonCommonXboxOne {
     A = 1,
     B = 2,
@@ -175,67 +168,61 @@ pub enum ButtonCommonXboxOne {
     Y = 16,
     LB = 64,
     RB = 128,
-    None = 0,
 }
 impl ButtonCommonXboxOne {
-    fn from_u8(raw_data: u8) -> Self {
+    fn from_u8(raw_data: u8) -> Option<Self> {
         match raw_data {
-            1 => return Self::A,
-            2 => return Self::B,
-            8 => return Self::X,
-            16 => return Self::Y,
-            64 => return Self::LB,
-            128 => return Self::RB,
-            0 => return Self::None,
-            _ => {
-                error!("Button value not implemented: {:?}", raw_data);
-                return Self::None;
-            }
+            1 => Some(Self::A),
+            2 => Some(Self::B),
+            8 => Some(Self::X),
+            16 => Some(Self::Y),
+            64 => Some(Self::LB),
+            128 => Some(Self::RB),
+            _ => None,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ButtonTriggerXboxOne {
     LT,
     RT,
-    None,
 }
 
 impl ButtonTriggerXboxOne {
-    fn from_u8(raw_data: &[u8]) -> Self {
+    fn from_u8(raw_data: &[u8]) -> Option<Self> {
         if (raw_data[8] == 255) && (raw_data[9] == 3) {
-            return Self::LT;
+            Some(Self::LT)
         } else if (raw_data[10] == 255) && (raw_data[11] == 3) {
-            return Self::RT;
+            Some(Self::RT)
         } else {
-            return Self::None;
+            None
         }
     }
 }
 
-
 // TODO: CHANGE TO STRUCT WITH OPTION FIELD
-#[derive(Debug, Clone, PartialEq)]
-pub enum ButtonsXboxOne {
-    Common(ButtonCommonXboxOne),
-    Trigger(ButtonTriggerXboxOne),
-    Combination(Vec<Self>),
-    Misc(ButtonMiscXboxOne),
-    Dpad(ButtonDpadXboxOne),
+#[derive(Debug, Clone, PartialEq, Default, Copy)]
+pub struct ButtonsXboxOne {
+    pub common: Option<ButtonCommonXboxOne>,
+    pub trigger: Option<ButtonTriggerXboxOne>,
+    pub misc: Option<ButtonMiscXboxOne>,
+    pub dpad: Option<ButtonDpadXboxOne>,
 }
 
 impl ButtonsXboxOne {
-    pub fn parse_bytes(raw_data: &[u8]) -> Vec<Self> {
+    pub fn parse_bytes(raw_data: &[u8]) -> Self {
         //idx 8+
-        let mut buttons: Vec<Self> = Vec::new();
-        buttons.push(Self::Trigger(ButtonTriggerXboxOne::from_u8(raw_data)));
-
-        buttons.push(Self::Dpad(ButtonDpadXboxOne::from_u8(raw_data[12])));
-
-        buttons.push(Self::Common(ButtonCommonXboxOne::from_u8(raw_data[13])));
-
-        buttons.push(Self::Misc(ButtonMiscXboxOne::from_u8(raw_data[14])));
+        let mut buttons = Self {
+            common: None,
+            trigger: None,
+            misc: None,
+            dpad: None,
+        };
+        buttons.common = ButtonCommonXboxOne::from_u8(raw_data[13]);
+        buttons.dpad = ButtonDpadXboxOne::from_u8(raw_data[12]);
+        buttons.trigger = ButtonTriggerXboxOne::from_u8(raw_data);
+        buttons.misc = ButtonMiscXboxOne::from_u8(raw_data[14]);
 
         buttons
     }

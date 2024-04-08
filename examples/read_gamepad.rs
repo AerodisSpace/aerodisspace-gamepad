@@ -23,11 +23,10 @@ fn main() -> anyhow::Result<()> {
         info!("gamepad type: {:?}", ble.gamepad_type);
         let gamepad = ble.get_gamepad().await;
         while ble.connected() {
-            
             match &gamepad {
                 GamepadHandler::XboxOne(gmpd) => {
-                    info!("Gamepad: {:?}", gmpd);
-                },
+                    info!("Gamepad: {:?}", gmpd.lock().unwrap());
+                }
             }
             FreeRtos::delay_ms(1);
         }

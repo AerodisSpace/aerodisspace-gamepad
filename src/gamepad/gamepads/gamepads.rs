@@ -28,7 +28,7 @@ pub enum GamepadHandler {
 
 /// Trait responsible for handling gamepad packets, parse characteristics and services to get the gamepad packet
 pub trait GamepadPacketHandler {
-    fn setup(self_arc: Arc<Mutex<GamepadXboxOne>>, svcs: Vec<&mut BLERemoteService>);
+    fn setup(self_arc: Arc<Mutex<Self>>, svcs: Vec<&mut BLERemoteService>);
     fn set_svcs(&mut self, self_arc: Arc<Mutex<Self>>, svcs: Vec<&mut BLERemoteService>);
     fn set_buttons(&mut self, raw_data: &[u8]);
     fn set_sticks(&mut self, raw_data: &[u8]);
