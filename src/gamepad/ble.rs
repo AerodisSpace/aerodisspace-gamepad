@@ -3,10 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use esp32_nimble::{
-    enums::{AuthReq, SecurityIOCap},
-    *,
-};
+use esp32_nimble::{enums::AuthReq, *};
 use log::{error, info, warn};
 
 use super::gamepads::{
@@ -127,7 +124,7 @@ impl<'a> AerodisSpaceGamepad<'a> {
         let svcs: Vec<&mut BLERemoteService> = self._ble_client.get_services().await.unwrap().into_iter().collect();
         match self.gamepad_type {
             GamepadType::XboxOne => {
-                let  gamepad = GamepadXboxOne::default();
+                let gamepad = GamepadXboxOne::default();
                 let gamepad_arc = Arc::new(Mutex::new(gamepad));
                 GamepadXboxOne::setup(gamepad_arc.clone(), svcs);
                 GamepadHandler::XboxOne(gamepad_arc)
